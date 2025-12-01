@@ -147,7 +147,8 @@
             const [filterClass, setFilterClass] = useState('all'); // all, Ordinária, Extraordinária
 
             useEffect(() => {
-                const savedData = localStorage.getItem('finance_dashboard_v2');
+                // VOLTEI PARA V1 PARA MANTER COMPATIBILIDADE COM SEUS DADOS
+                const savedData = localStorage.getItem('finance_dashboard_v1');
                 if (savedData) {
                     try {
                         const parsed = JSON.parse(savedData);
@@ -166,7 +167,8 @@
             useEffect(() => {
                 if (transactions.length > 0) {
                     const dataToSave = { transactions, initialBalance, filesLoaded };
-                    localStorage.setItem('finance_dashboard_v2', JSON.stringify(dataToSave));
+                    // VOLTEI PARA V1 PARA MANTER COMPATIBILIDADE COM SEUS DADOS
+                    localStorage.setItem('finance_dashboard_v1', JSON.stringify(dataToSave));
                     setLastSaved(new Date().toLocaleTimeString());
                 }
             }, [transactions, initialBalance, filesLoaded]);
@@ -199,7 +201,8 @@
                             setTransactions(restoredTransactions);
                             setInitialBalance(parsed.initialBalance || 0);
                             setFilesLoaded(parsed.filesLoaded || []);
-                            localStorage.setItem('finance_dashboard_v2', JSON.stringify({
+                            // Mantendo v1 aqui também
+                            localStorage.setItem('finance_dashboard_v1', JSON.stringify({
                                 transactions: restoredTransactions,
                                 initialBalance: parsed.initialBalance || 0,
                                 filesLoaded: parsed.filesLoaded || []
@@ -214,7 +217,8 @@
 
             const resetAll = () => {
                 if(confirm("Apagar tudo e começar do zero?")) {
-                    localStorage.removeItem('finance_dashboard_v2');
+                    // Limpando v1
+                    localStorage.removeItem('finance_dashboard_v1');
                     setTransactions([]);
                     setInitialBalance(0);
                     setFilesLoaded([]);
