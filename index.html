@@ -3,583 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro Pro (Blindado)</title>
+    <title>Dashboard Financeiro (Modo Print)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM (Versão 17 LTS - Estabilidade Máxima) -->
+    <!-- React 17 (Estável) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Recharts (Versão 2.1.9 - Blindada) -->
+    <!-- Recharts (Versão 2.1.9) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.1.9/Recharts.min.js"></script>
 
     <style>
-        /* OTIMIZAÇÃO DE IMPRESSÃO */
-        @media print {
-            body { -webkit-print-color-adjust: exact; background-color: white !important; }
-            .no-print { display: none !important; }
-            .break-inside-avoid { page-break-inside: avoid; }
-            .print-full-height { max-height: none !important; overflow: visible !important; }
-            .card { box-shadow: none !important; border: 1px solid #ccc !important; }
-            ::-webkit-scrollbar { display: none; }
-        }
+        body { background-color: #f8fafc; font-family: sans-serif; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
         
-        .fade-in { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* MODO PRINT ATIVADO (Classe que expande tudo) */
+        .print-mode .hide-on-print { display: none !important; }
+        .print-mode .card { box-shadow: none; border: 1px solid #ccc; }
+        .print-mode .scroll-container { max-height: none !important; overflow: visible !important; }
+        .print-mode body { background-color: white; }
         
-        body { background-color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
-        .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); border: 1px solid #e2e8f0; }
-        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); }
-        
-        /* Scrollbar suave */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
         
-        // --- BLINDAGEM DO RECHARTS ---
-        // Tenta capturar a biblioteca globalmente. Se falhar, cria um objeto vazio para não quebrar o script.
-        const RechartsObj = window.Recharts || window.recharts || {};
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = RechartsObj;
-        
-        // Flag para saber se podemos desenhar gráficos
-        const canRenderCharts = !!(BarChart && PieChart && ResponsiveContainer);
-
-        const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
-
-        const Icons = {
-            Upload: () => <svg className="w-12 h-12 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>,
-            Money: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
-            TrendUp: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>,
-            TrendDown: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path></svg>,
-            Chart: () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>,
-            Calendar: () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>,
-            Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>,
-            Pencil: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>,
-            Close: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>,
-            Save: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>,
-            UploadCloud: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>,
-            Filter: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>,
-            Search: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-        };
-
-        function EditModal({ isOpen, onClose, onSave, transaction }) {
-            const [classification, setClassification] = useState('Ordinária');
-            const [note, setNote] = useState('');
-
-            useEffect(() => {
-                if (transaction) {
-                    setClassification(transaction.classification || 'Ordinária');
-                    setNote(transaction.note || '');
-                }
-            }, [transaction]);
-
-            if (!isOpen || !transaction) return null;
-
-            const handleSave = () => {
-                onSave(transaction.id, classification, note);
-                onClose();
-            };
-
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay no-print">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
-                        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800">Editar Detalhes</h3>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><Icons.Close /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                <p className="text-xs text-blue-600 font-bold uppercase mb-1">{transaction.date}</p>
-                                <p className="text-slate-700 font-medium truncate">{transaction.desc}</p>
-                                <p className={`text-xl font-bold mt-1 ${transaction.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(transaction.value)}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Classificação</label>
-                                <select 
-                                    value={classification} 
-                                    onChange={(e) => setClassification(e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-                                >
-                                    <option value="Ordinária">Ordinária (Padrão)</option>
-                                    <option value="Extraordinária">Extraordinária</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Nota / Justificativa</label>
-                                <textarea 
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    placeholder="Ex: Compra emergencial, taxa extra..."
-                                    rows="3"
-                                    className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-                                ></textarea>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                            <button onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
-                            <button onClick={handleSave} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md transition-transform active:scale-95">Salvar</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        // Componente de Gráficos Seguro (Não quebra se a lib falhar)
-        function SafeCharts({ chartData, topExpenses, fmtMoney }) {
-            if (!canRenderCharts) {
-                return (
-                    <div className="card p-8 text-center text-slate-400 no-print">
-                        <Icons.Chart />
-                        <p className="mt-2">Visualização gráfica indisponível no momento.</p>
-                        <p className="text-xs">Tente recarregar a página.</p>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:break-inside-avoid">
-                    <div className="card p-6 break-inside-avoid mb-6 lg:mb-0">
-                        <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Calendar /> Fluxo {chartData.length > 20 ? 'Mensal' : 'Diário'}</h3>
-                        <div className="h-72">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData} margin={{top:10, right:10, left:-20, bottom:0}}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} tickFormatter={(v)=>`R$${v/1000}k`} />
-                                    <Tooltip cursor={{fill: '#f8fafc'}} formatter={(val) => fmtMoney(val)} contentStyle={{borderRadius:'12px', border:'none', boxShadow:'0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                                    <Legend wrapperStyle={{paddingTop:'20px'}} />
-                                    <Bar name="Entradas" dataKey="Entradas" fill="#10b981" radius={[4,4,0,0]} />
-                                    <Bar name="Saídas" dataKey="Saídas" fill="#ef4444" radius={[4,4,0,0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                    <div className="card p-6 break-inside-avoid">
-                        <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Chart /> Top Despesas (Filtro)</h3>
-                        <div className="h-72 flex items-center justify-center">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={topExpenses} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                        {topExpenses.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
-                                    </Pie>
-                                    <Tooltip formatter={(val) => fmtMoney(val)} />
-                                    <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
+        // Blindagem simples para gráficos
+        const Recharts = window.Recharts || {};
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
+        const hasCharts = !!(BarChart && PieChart);
+        const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
         function Dashboard() {
             const [transactions, setTransactions] = useState([]);
             const [initialBalance, setInitialBalance] = useState(0);
-            const [filesLoaded, setFilesLoaded] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [editingTransaction, setEditingTransaction] = useState(null);
-            const [lastSaved, setLastSaved] = useState(null);
+            const [printMode, setPrintMode] = useState(false); // Estado para controlar o modo print
 
-            // Filtros
-            const [filterTerm, setFilterTerm] = useState('');
-            const [filterType, setFilterType] = useState('all');
-            const [filterClass, setFilterClass] = useState('all');
-
-            // --- CARREGAMENTO DE DADOS ---
-            useEffect(() => {
-                const savedData = localStorage.getItem('finance_dashboard_v1');
-                if (savedData) {
-                    try {
-                        const parsed = JSON.parse(savedData);
-                        const restoredTransactions = parsed.transactions.map(t => ({
-                            ...t,
-                            dateObj: new Date(t.dateObj)
-                        }));
-                        setTransactions(restoredTransactions);
-                        setInitialBalance(parsed.initialBalance || 0);
-                        setFilesLoaded(parsed.filesLoaded || []);
-                        setLastSaved(new Date().toLocaleTimeString());
-                    } catch (e) { console.error(e); }
-                }
-            }, []);
-
-            // --- SALVAMENTO AUTOMÁTICO ---
-            useEffect(() => {
-                if (transactions.length > 0) {
-                    const dataToSave = { transactions, initialBalance, filesLoaded };
-                    localStorage.setItem('finance_dashboard_v1', JSON.stringify(dataToSave));
-                    setLastSaved(new Date().toLocaleTimeString());
-                }
-            }, [transactions, initialBalance, filesLoaded]);
-
-            const handleSaveEdit = (id, newClass, newNote) => {
-                setTransactions(prev => prev.map(t => 
-                    t.id === id ? { ...t, classification: newClass, note: newNote } : t
-                ));
-            };
-
-            const downloadBackup = () => {
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ transactions, initialBalance, filesLoaded }));
-                const downloadAnchorNode = document.createElement('a');
-                downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", `financeiro_backup_${new Date().toISOString().split('T')[0]}.json`);
-                document.body.appendChild(downloadAnchorNode);
-                downloadAnchorNode.click();
-                downloadAnchorNode.remove();
-            };
-
+            // Restaurar Backup
             const handleRestore = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = (ev) => {
                     try {
-                        const parsed = JSON.parse(event.target.result);
-                        if (parsed.transactions) {
-                            const restoredTransactions = parsed.transactions.map(t => ({...t, dateObj: new Date(t.dateObj)}));
-                            setTransactions(restoredTransactions);
-                            setInitialBalance(parsed.initialBalance || 0);
-                            setFilesLoaded(parsed.filesLoaded || []);
-                            localStorage.setItem('finance_dashboard_v1', JSON.stringify({
-                                transactions: restoredTransactions,
-                                initialBalance: parsed.initialBalance || 0,
-                                filesLoaded: parsed.filesLoaded || []
-                            }));
-                            alert(`Backup restaurado! ${restoredTransactions.length} registros.`);
+                        const json = JSON.parse(ev.target.result);
+                        if (json.transactions) {
+                            // Corrige datas
+                            const fixed = json.transactions.map(t => ({...t, dateObj: new Date(t.dateObj)}));
+                            setTransactions(fixed);
+                            setInitialBalance(json.initialBalance || 0);
                         }
-                    } catch (err) { alert("Erro ao restaurar backup."); }
+                    } catch (err) { alert("Erro ao ler arquivo."); }
                 };
                 reader.readAsText(file);
-                e.target.value = null;
             };
-
-            const resetAll = () => {
-                if(confirm("Apagar tudo e começar do zero?")) {
-                    localStorage.removeItem('finance_dashboard_v1');
-                    setTransactions([]);
-                    setInitialBalance(0);
-                    setFilesLoaded([]);
-                }
-            };
-
-            // --- Lógica CSV ---
-            const parseCurrency = (val) => {
-                if (!val) return 0;
-                let clean = val.toString().replace(/["']/g, '').trim();
-                const isNegative = clean.includes('-') || clean.toUpperCase().includes('D');
-                clean = clean.replace(/[^\d,]/g, '');
-                if (!clean) return 0;
-                const floatVal = parseFloat(clean.replace(',', '.'));
-                return isNegative ? -Math.abs(floatVal) : Math.abs(floatVal);
-            };
-
-            const parseDate = (str) => {
-                if (!str) return null;
-                try {
-                    const clean = str.trim().split(' ')[0].replace(/["']/g, '');
-                    const [d, m, y] = clean.split('/');
-                    const fullYear = y.length === 2 ? `20${y}` : y;
-                    return new Date(`${fullYear}-${m}-${d}`);
-                } catch { return null; }
-            };
-
-            const processFiles = async (e) => {
-                const files = Array.from(e.target.files);
-                if (!files.length) return;
-                setLoading(true);
-                let allRows = [];
-                const loadedNames = [];
-
-                for (const file of files) {
-                    loadedNames.push(file.name);
-                    const text = await new Promise(resolve => {
-                        const reader = new FileReader();
-                        reader.readAsText(file, 'ISO-8859-1');
-                        reader.onload = ev => resolve(ev.target.result);
-                    });
-                    const lines = text.split('\n');
-                    for (const line of lines) {
-                        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-                        if (!matches || matches.length < 3) continue;
-                        const cleanCol = (idx) => matches[idx] ? matches[idx].replace(/^"|"$/g, '') : '';
-                        const rawDate = cleanCol(0);
-                        const rawDesc = cleanCol(1);
-                        const rawVal = cleanCol(4);
-                        const rawDet = cleanCol(2);
-                        if (!rawDate.includes('/')) continue; 
-                        const dateObj = parseDate(rawDate);
-                        if (!dateObj || isNaN(dateObj.getTime())) continue;
-                        allRows.push({
-                            id: Math.random().toString(36), date: rawDate, dateObj: dateObj, desc: rawDesc, details: rawDet,
-                            rawVal: rawVal, value: parseCurrency(rawVal), classification: 'Ordinária', note: ''
-                        });
-                    }
-                }
-                allRows.sort((a, b) => a.dateObj - b.dateObj);
-                let startBalance = 0;
-                let foundStart = false;
-                const cleanTransactions = [];
-                for (const row of allRows) {
-                    const descLower = row.desc.toLowerCase();
-                    const lineStr = (row.desc + ' ' + row.details).toLowerCase();
-                    const isSaldoLine = descLower.includes('saldo') || lineStr.includes('saldo do dia') || lineStr.includes('s a l d o');
-                    const isOpening = descLower.includes('saldo anterior') || descLower.includes('saldo inicial');
-                    if (isOpening) {
-                        if (!foundStart) { startBalance = row.value; foundStart = true; }
-                        continue; 
-                    }
-                    if (isSaldoLine) continue;
-                    cleanTransactions.push(row);
-                }
-                setInitialBalance(startBalance);
-                setTransactions(cleanTransactions);
-                setFilesLoaded(loadedNames);
-                setLoading(false);
-            };
-
-            // --- FILTRAGEM ---
-            const filteredTransactions = useMemo(() => {
-                return transactions.filter(t => {
-                    const matchesText = filterTerm === '' || 
-                        t.desc.toLowerCase().includes(filterTerm.toLowerCase()) || 
-                        t.details.toLowerCase().includes(filterTerm.toLowerCase()) ||
-                        t.note.toLowerCase().includes(filterTerm.toLowerCase());
-                    const matchesType = filterType === 'all' || 
-                        (filterType === 'income' ? t.value > 0 : t.value < 0);
-                    const matchesClass = filterClass === 'all' || 
-                        t.classification === filterClass;
-                    return matchesText && matchesType && matchesClass;
-                });
-            }, [transactions, filterTerm, filterType, filterClass]);
-
-            const totals = useMemo(() => {
-                return filteredTransactions.reduce((acc, t) => {
-                    if (t.value > 0) acc.inc += t.value;
-                    else acc.exp += t.value;
-                    return acc;
-                }, { inc: 0, exp: 0 });
-            }, [filteredTransactions]);
-
-            const globalBalance = useMemo(() => {
-                return initialBalance + transactions.reduce((acc, t) => acc + t.value, 0);
-            }, [initialBalance, transactions]);
-
-            const chartData = useMemo(() => {
-                if (!filteredTransactions.length) return [];
-                const range = filteredTransactions[filteredTransactions.length-1].dateObj - filteredTransactions[0].dateObj;
-                const days = range / (1000 * 60 * 60 * 24);
-                const isMonthly = days > 60;
-                const groups = {};
-                filteredTransactions.forEach(t => {
-                    let sortKey, label;
-                    if (isMonthly) {
-                        const m = t.dateObj.getMonth();
-                        const y = t.dateObj.getFullYear();
-                        const names = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-                        sortKey = `${y}-${String(m+1).padStart(2, '0')}`;
-                        label = `${names[m]}/${y.toString().substr(2)}`;
-                    } else {
-                        sortKey = t.dateObj.toISOString().split('T')[0];
-                        label = t.date.substring(0, 5);
-                    }
-                    if (!groups[sortKey]) groups[sortKey] = { name: label, Entradas: 0, Saídas: 0 };
-                    if (t.value > 0) groups[sortKey].Entradas += t.value;
-                    else groups[sortKey].Saídas += Math.abs(t.value);
-                });
-                return Object.keys(groups).sort().map(key => groups[key]);
-            }, [filteredTransactions]);
-
-            const topExpenses = useMemo(() => {
-                const cats = {};
-                filteredTransactions.filter(t => t.value < 0).forEach(t => {
-                    const n = t.desc || 'Outros';
-                    if (!cats[n]) cats[n] = 0;
-                    cats[n] += Math.abs(t.value);
-                });
-                return Object.keys(cats).map(k => ({ name: k, value: cats[k] })).sort((a,b) => b.value - a.value).slice(0, 6);
-            }, [filteredTransactions]);
 
             const fmtMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-            if (!transactions.length) {
+            // Cálculos
+            const totals = useMemo(() => transactions.reduce((acc, t) => {
+                if(t.value > 0) acc.inc += t.value; else acc.exp += t.value;
+                return acc;
+            }, {inc:0, exp:0}), [transactions]);
+            
+            const balance = initialBalance + totals.inc + totals.exp;
+
+            // Gráficos Simplificados
+            const chartData = useMemo(() => {
+                if (!transactions.length) return [];
+                const groups = {};
+                transactions.forEach(t => {
+                    const key = t.date.substring(3); // mm/yyyy
+                    if(!groups[key]) groups[key] = {name: key, Entradas: 0, Saídas: 0};
+                    if(t.value > 0) groups[key].Entradas += t.value; else groups[key].Saídas += Math.abs(t.value);
+                });
+                return Object.values(groups);
+            }, [transactions]);
+
+            if (transactions.length === 0) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-                        <div className="bg-white p-12 rounded-3xl shadow-xl text-center max-w-lg w-full border border-blue-100">
-                            <Icons.Upload />
-                            <h1 className="text-3xl font-bold text-slate-800 mb-2">Financeiro Pro</h1>
-                            <p className="text-slate-500 mb-8">Importe seus arquivos CSV para começar.</p>
-                            <div className="space-y-3">
-                                <label className="block w-full cursor-pointer group">
-                                    <div className="border-2 border-dashed border-blue-200 rounded-2xl h-24 flex items-center justify-center bg-blue-50 group-hover:bg-blue-100 transition-colors">
-                                        {loading ? <span className="animate-pulse font-bold text-blue-600">Lendo...</span> : <span className="font-semibold text-blue-600">Selecionar CSVs</span>}
-                                    </div>
-                                    <input type="file" multiple accept=".csv" className="hidden" onChange={processFiles} />
-                                </label>
-                                <div className="flex items-center gap-2 justify-center pt-2">
-                                    <span className="text-xs text-slate-400 font-bold uppercase">Ou</span>
-                                </div>
-                                <label className="block w-full cursor-pointer">
-                                    <div className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                                        <Icons.UploadCloud /> Restaurar Backup
-                                    </div>
-                                    <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
-                                </label>
-                            </div>
+                    <div className="min-h-screen flex items-center justify-center p-10">
+                        <div className="text-center">
+                            <h1 className="text-2xl font-bold mb-4">Carregar Backup</h1>
+                            <label className="bg-blue-600 text-white px-6 py-3 rounded-xl cursor-pointer hover:bg-blue-700 font-bold">
+                                📂 Selecionar Arquivo .JSON
+                                <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
+                            </label>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen p-6 md:p-10 fade-in bg-slate-50">
-                    <EditModal isOpen={!!editingTransaction} transaction={editingTransaction} onClose={() => setEditingTransaction(null)} onSave={handleSaveEdit} />
-
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4 no-print">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                                <div className="p-2 bg-blue-600 rounded-lg text-white"><Icons.Money /></div>
-                                Prestação de Contas
-                            </h1>
-                            <div className="flex items-center gap-3 mt-2 text-sm text-slate-500">
-                                <span>{filesLoaded.length} arqs</span> <span className="w-1 h-1 bg-slate-300 rounded-full"></span> <span>{transactions.length} itens</span>
-                                {lastSaved && <span className="text-green-600 flex items-center gap-1 ml-2"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Salvo às {lastSaved}</span>}
-                            </div>
-                        </div>
+                <div className={`min-h-screen p-8 ${printMode ? 'print-mode' : ''}`}>
+                    {/* TOPO: Botões de Controle */}
+                    <div className="flex justify-between items-center mb-8 hide-on-print">
+                        <h1 className="text-2xl font-bold text-slate-800">Dashboard Financeiro</h1>
                         <div className="flex gap-2">
-                            <label className="btn-icon bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-semibold cursor-pointer flex items-center gap-2" title="Restaurar de outro computador">
-                                <Icons.UploadCloud /> <span className="hidden md:inline">Restaurar</span>
-                                <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
-                            </label>
-                            <button onClick={downloadBackup} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-xl font-semibold flex items-center gap-2"><Icons.Save /> <span className="hidden md:inline">Backup</span></button>
-                            <button onClick={() => window.print()} className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-xl font-semibold flex items-center gap-2 shadow-sm"><Icons.Download /> Imprimir</button>
-                            <button onClick={resetAll} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl font-semibold flex items-center gap-2"><Icons.Trash /></button>
+                            <button 
+                                onClick={() => setPrintMode(!printMode)}
+                                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 ${printMode ? 'bg-red-100 text-red-600' : 'bg-blue-600 text-white'}`}
+                            >
+                                {printMode ? '❌ Sair do Modo Print' : '📸 MODO PRINT (Expandir)'}
+                            </button>
+                            <button onClick={() => window.print()} className="bg-white border px-4 py-2 rounded-lg font-semibold hover:bg-gray-50">
+                                🖨️ Imprimir PDF
+                            </button>
                         </div>
                     </div>
 
-                    {/* BARRA DE FILTROS */}
-                    <div className="max-w-7xl mx-auto mb-8 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center no-print">
-                        <div className="flex items-center gap-2 text-slate-500 font-semibold mr-2">
-                            <Icons.Filter /> Filtros:
+                    {/* CABEÇALHO DO RELATÓRIO (Aparece só no modo print/PDF) */}
+                    {printMode && (
+                        <div className="text-center mb-8 border-b pb-4">
+                            <h2 className="text-3xl font-bold text-slate-800">Relatório Financeiro Completo</h2>
+                            <p className="text-slate-500">Período: {transactions[0].date} a {transactions[transactions.length-1].date}</p>
                         </div>
-                        <div className="relative w-full md:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Icons.Search /></div>
-                            <input 
-                                type="text" placeholder="Buscar..." 
-                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                value={filterTerm} onChange={e => setFilterTerm(e.target.value)}
-                            />
+                    )}
+
+                    {/* CARDS */}
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                        <div className="card p-4 border-l-4 border-gray-400">
+                            <p className="text-gray-500 text-xs font-bold uppercase">Saldo Inicial</p>
+                            <p className="text-xl font-bold text-gray-700">{fmtMoney(initialBalance)}</p>
                         </div>
-                        <select 
-                            className="w-full md:w-40 py-2 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            value={filterType} onChange={e => setFilterType(e.target.value)}
-                        >
-                            <option value="all">Todos Tipos</option>
-                            <option value="income">Entradas</option>
-                            <option value="expense">Saídas</option>
-                        </select>
-                        <select 
-                            className="w-full md:w-48 py-2 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            value={filterClass} onChange={e => setFilterClass(e.target.value)}
-                        >
-                            <option value="all">Todas Classes</option>
-                            <option value="Ordinária">Ordinária</option>
-                            <option value="Extraordinária">Extraordinária</option>
-                        </select>
-                        {(filterTerm || filterType !== 'all' || filterClass !== 'all') && (
-                            <button onClick={() => {setFilterTerm(''); setFilterType('all'); setFilterClass('all');}} className="text-sm text-red-500 hover:text-red-700 font-semibold whitespace-nowrap">Limpar Filtros</button>
-                        )}
-                        <div className="flex-grow text-right text-xs text-slate-400">Mostrando {filteredTransactions.length} de {transactions.length}</div>
+                        <div className="card p-4 border-l-4 border-green-500">
+                            <p className="text-gray-500 text-xs font-bold uppercase">Entradas</p>
+                            <p className="text-xl font-bold text-slate-800">{fmtMoney(totals.inc)}</p>
+                        </div>
+                        <div className="card p-4 border-l-4 border-red-500">
+                            <p className="text-gray-500 text-xs font-bold uppercase">Saídas</p>
+                            <p className="text-xl font-bold text-slate-800">{fmtMoney(Math.abs(totals.exp))}</p>
+                        </div>
+                        <div className={`card p-4 border-l-4 ${balance >= 0 ? 'border-blue-600' : 'border-orange-500'}`}>
+                            <p className="text-slate-500 text-xs font-bold uppercase">Saldo Final</p>
+                            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>{fmtMoney(balance)}</p>
+                        </div>
                     </div>
 
-                    <div className="max-w-7xl mx-auto space-y-8">
-                        {/* HEADER DE IMPRESSÃO */}
-                        <div className="hidden print:block text-center mb-8">
-                            <h1 className="text-2xl font-bold text-slate-800">Relatório Financeiro</h1>
-                            <p className="text-sm text-slate-500">Período: {transactions[0]?.date} a {transactions[transactions.length-1]?.date}</p>
+                    {/* GRÁFICO (Seguro) */}
+                    {hasCharts && !printMode && (
+                        <div className="card p-6 mb-8 h-64 hide-on-print">
+                            <h3 className="font-bold text-slate-700 mb-4">Fluxo Mensal</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="name" fontSize={12} />
+                                    <YAxis fontSize={12} />
+                                    <Tooltip formatter={(val) => fmtMoney(val)} />
+                                    <Legend />
+                                    <Bar name="Entradas" dataKey="Entradas" fill="#10b981" />
+                                    <Bar name="Saídas" dataKey="Saídas" fill="#ef4444" />
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
+                    )}
 
-                        {/* CARDS */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-4">
-                            <div className="card p-6 border-l-4 border-l-gray-400">
-                                <span className="text-gray-500 text-sm font-semibold uppercase">Saldo Inicial</span>
-                                <div className="text-2xl font-bold text-gray-700 mt-1">{fmtMoney(initialBalance)}</div>
-                            </div>
-                            <div className="card p-6 border-l-4 border-l-green-500">
-                                <span className="text-gray-500 text-sm font-semibold uppercase">Entradas (Filtro)</span>
-                                <div className="text-2xl font-bold text-slate-800 mt-1">{fmtMoney(totals.inc)}</div>
-                            </div>
-                            <div className="card p-6 border-l-4 border-l-red-500">
-                                <span className="text-gray-500 text-sm font-semibold uppercase">Saídas (Filtro)</span>
-                                <div className="text-2xl font-bold text-slate-800 mt-1">{fmtMoney(Math.abs(totals.exp))}</div>
-                            </div>
-                            <div className={`card p-6 border-l-4 ${globalBalance >= 0 ? 'border-l-blue-600' : 'border-l-orange-500'} bg-slate-50`}>
-                                <span className="text-slate-500 text-sm font-semibold uppercase">Saldo Global Real</span>
-                                <div className={`text-3xl font-extrabold mt-1 ${globalBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>{fmtMoney(globalBalance)}</div>
-                            </div>
-                        </div>
-
-                        {/* GRÁFICOS (Renderizados com segurança) */}
-                        <SafeCharts chartData={chartData} topExpenses={topExpenses} fmtMoney={fmtMoney} />
-
-                        {/* TABELA OTIMIZADA */}
-                        <div className="card overflow-hidden print:border-0">
-                            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center print:hidden">
-                                <h3 className="font-bold text-slate-700">Listagem de Transações</h3>
-                            </div>
-                            <div className="overflow-x-auto max-h-[600px] overflow-y-auto print-full-height">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm print:static print:shadow-none">
-                                        <tr>
-                                            <th className="px-6 py-4 font-semibold">Data</th>
-                                            <th className="px-6 py-4 font-semibold">Descrição</th>
-                                            <th className="px-6 py-4 font-semibold">Classificação / Nota</th>
-                                            <th className="px-6 py-4 font-semibold text-right">Valor</th>
-                                            <th className="px-6 py-4 font-semibold text-center w-20 print:hidden">Editar</th>
+                    {/* TABELA DE DADOS (Expande no modo print) */}
+                    <div className="card overflow-hidden">
+                        <div className="p-4 bg-slate-50 border-b font-bold text-slate-700">Detalhamento das Transações</div>
+                        <div className="scroll-container overflow-auto max-h-[500px]">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-100 text-slate-500 font-bold sticky top-0">
+                                    <tr>
+                                        <th className="p-3">Data</th>
+                                        <th className="p-3">Descrição</th>
+                                        <th className="p-3">Info / Classificação</th>
+                                        <th className="p-3 text-right">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {transactions.map(t => (
+                                        <tr key={t.id} className="hover:bg-slate-50">
+                                            <td className="p-3 whitespace-nowrap text-slate-600">{t.date}</td>
+                                            <td className="p-3 font-medium text-slate-800">{t.desc}</td>
+                                            <td className="p-3">
+                                                <div className="flex flex-col">
+                                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded w-fit ${
+                                                        t.classification === 'Extraordinária' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {t.classification}
+                                                    </span>
+                                                    {t.note && <span className="text-xs text-slate-500 italic mt-1">"{t.note}"</span>}
+                                                </div>
+                                            </td>
+                                            <td className={`p-3 text-right font-bold ${t.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {fmtMoney(t.value)}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {filteredTransactions.map((t) => (
-                                            <tr key={t.id} className="hover:bg-slate-50 transition-colors break-inside-avoid">
-                                                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{t.date}</td>
-                                                <td className="px-6 py-4 font-medium text-slate-700">
-                                                    {t.desc}
-                                                    <div className="text-xs text-slate-400 font-normal truncate max-w-xs">{t.details}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                                                            t.classification === 'Extraordinária' 
-                                                            ? 'bg-purple-50 text-purple-700 border-purple-100' 
-                                                            : 'bg-slate-50 text-slate-600 border-slate-100'
-                                                        }`}>
-                                                            {t.classification}
-                                                        </span>
-                                                        {t.note && <span className="text-xs text-slate-500 italic bg-yellow-50 px-2 py-0.5 rounded border border-yellow-100">"{t.note}"</span>}
-                                                    </div>
-                                                </td>
-                                                <td className={`px-6 py-4 text-right font-bold whitespace-nowrap ${t.value >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{t.value > 0 ? '+' : ''} {fmtMoney(t.value)}</td>
-                                                <td className="px-6 py-4 text-center print:hidden">
-                                                    <button onClick={() => setEditingTransaction(t)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Icons.Pencil /></button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
