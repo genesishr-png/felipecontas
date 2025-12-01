@@ -3,36 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro Pro</title>
+    <title>Dashboard Financeiro Pro (Compatível)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM (Versão 17 LTS) -->
+    <!-- React & ReactDOM (Versão 17 LTS - A mais estável para este código) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Recharts -->
+    <!-- Recharts (Versão 2.1.9 - Blindada contra erros de renderização) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.1.9/Recharts.min.js"></script>
 
     <style>
-        /* OTIMIZAÇÃO DE IMPRESSÃO */
+        /* OTIMIZAÇÃO DE IMPRESSÃO (CSS Mágico) */
         @media print {
             body { -webkit-print-color-adjust: exact; background-color: white !important; }
             .no-print { display: none !important; }
             .break-inside-avoid { page-break-inside: avoid; }
+            /* Remove scrollbars e expande tabelas na impressão */
             .print-full-height { max-height: none !important; overflow: visible !important; }
             .card { box-shadow: none !important; border: 1px solid #ccc !important; }
-            /* Esconde scrollbars na impressão */
             ::-webkit-scrollbar { display: none; }
+            /* Força quebra de página limpa se necessário */
+            .page-break { page-break-before: always; }
         }
         
         .fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        body { background-color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        body { background-color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
         .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); border: 1px solid #e2e8f0; }
         .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); }
         
@@ -91,7 +93,7 @@
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay no-print">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
                         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800">Editar Detalhes</h3>
+                            <h3 className="text-lg font-bold text-slate-800">Editar Transação</h3>
                             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><Icons.Close /></button>
                         </div>
                         <div className="p-6 space-y-4">
@@ -118,7 +120,7 @@
                                 <textarea 
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    placeholder="Ex: Compra emergencial, taxa extra..."
+                                    placeholder="Ex: Taxa extra, erro do banco..."
                                     rows="3"
                                     className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                                 ></textarea>
@@ -143,11 +145,12 @@
 
             // Filtros
             const [filterTerm, setFilterTerm] = useState('');
-            const [filterType, setFilterType] = useState('all'); // all, income, expense
-            const [filterClass, setFilterClass] = useState('all'); // all, Ordinária, Extraordinária
+            const [filterType, setFilterType] = useState('all');
+            const [filterClass, setFilterClass] = useState('all');
 
+            // --- CARREGAMENTO DE DADOS (Compatível com v1) ---
             useEffect(() => {
-                // VOLTEI PARA V1 PARA MANTER COMPATIBILIDADE COM SEUS DADOS
+                // USA A MESMA CHAVE 'finance_dashboard_v1' PARA MANTER COMPATIBILIDADE
                 const savedData = localStorage.getItem('finance_dashboard_v1');
                 if (savedData) {
                     try {
@@ -164,10 +167,10 @@
                 }
             }, []);
 
+            // --- SALVAMENTO AUTOMÁTICO (Compatível com v1) ---
             useEffect(() => {
                 if (transactions.length > 0) {
                     const dataToSave = { transactions, initialBalance, filesLoaded };
-                    // VOLTEI PARA V1 PARA MANTER COMPATIBILIDADE COM SEUS DADOS
                     localStorage.setItem('finance_dashboard_v1', JSON.stringify(dataToSave));
                     setLastSaved(new Date().toLocaleTimeString());
                 }
@@ -201,7 +204,6 @@
                             setTransactions(restoredTransactions);
                             setInitialBalance(parsed.initialBalance || 0);
                             setFilesLoaded(parsed.filesLoaded || []);
-                            // Mantendo v1 aqui também
                             localStorage.setItem('finance_dashboard_v1', JSON.stringify({
                                 transactions: restoredTransactions,
                                 initialBalance: parsed.initialBalance || 0,
@@ -217,7 +219,6 @@
 
             const resetAll = () => {
                 if(confirm("Apagar tudo e começar do zero?")) {
-                    // Limpando v1
                     localStorage.removeItem('finance_dashboard_v1');
                     setTransactions([]);
                     setInitialBalance(0);
@@ -225,7 +226,7 @@
                 }
             };
 
-            // --- Lógica CSV ---
+            // --- Lógica CSV (Robusta) ---
             const parseCurrency = (val) => {
                 if (!val) return 0;
                 let clean = val.toString().replace(/["']/g, '').trim();
@@ -300,23 +301,17 @@
                 setLoading(false);
             };
 
-            // --- FILTRAGEM ---
+            // --- FILTRAGEM INTELIGENTE ---
             const filteredTransactions = useMemo(() => {
                 return transactions.filter(t => {
-                    // Texto
                     const matchesText = filterTerm === '' || 
                         t.desc.toLowerCase().includes(filterTerm.toLowerCase()) || 
                         t.details.toLowerCase().includes(filterTerm.toLowerCase()) ||
                         t.note.toLowerCase().includes(filterTerm.toLowerCase());
-                    
-                    // Tipo
                     const matchesType = filterType === 'all' || 
                         (filterType === 'income' ? t.value > 0 : t.value < 0);
-
-                    // Classificação
                     const matchesClass = filterClass === 'all' || 
                         t.classification === filterClass;
-
                     return matchesText && matchesType && matchesClass;
                 });
             }, [transactions, filterTerm, filterType, filterClass]);
@@ -330,7 +325,6 @@
             }, [filteredTransactions]);
 
             const globalBalance = useMemo(() => {
-                // Calcula saldo real baseado em tudo, não apenas no filtro, para contexto
                 return initialBalance + transactions.reduce((acc, t) => acc + t.value, 0);
             }, [initialBalance, transactions]);
 
@@ -416,7 +410,7 @@
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <label className="btn-icon bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-semibold cursor-pointer flex items-center gap-2" title="Restaurar">
+                            <label className="btn-icon bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-semibold cursor-pointer flex items-center gap-2" title="Restaurar de outro computador">
                                 <Icons.UploadCloud /> <span className="hidden md:inline">Restaurar</span>
                                 <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
                             </label>
@@ -431,53 +425,38 @@
                         <div className="flex items-center gap-2 text-slate-500 font-semibold mr-2">
                             <Icons.Filter /> Filtros:
                         </div>
-                        
                         <div className="relative w-full md:w-64">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Icons.Search /></div>
                             <input 
-                                type="text" 
-                                placeholder="Buscar por nome, valor..." 
-                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                value={filterTerm}
-                                onChange={e => setFilterTerm(e.target.value)}
+                                type="text" placeholder="Buscar..." 
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={filterTerm} onChange={e => setFilterTerm(e.target.value)}
                             />
                         </div>
-
                         <select 
                             className="w-full md:w-40 py-2 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            value={filterType}
-                            onChange={e => setFilterType(e.target.value)}
+                            value={filterType} onChange={e => setFilterType(e.target.value)}
                         >
-                            <option value="all">Todos os Tipos</option>
-                            <option value="income">Apenas Entradas</option>
-                            <option value="expense">Apenas Saídas</option>
+                            <option value="all">Todos Tipos</option>
+                            <option value="income">Entradas</option>
+                            <option value="expense">Saídas</option>
                         </select>
-
                         <select 
                             className="w-full md:w-48 py-2 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            value={filterClass}
-                            onChange={e => setFilterClass(e.target.value)}
+                            value={filterClass} onChange={e => setFilterClass(e.target.value)}
                         >
-                            <option value="all">Todas Classificações</option>
+                            <option value="all">Todas Classes</option>
                             <option value="Ordinária">Ordinária</option>
                             <option value="Extraordinária">Extraordinária</option>
                         </select>
-
                         {(filterTerm || filterType !== 'all' || filterClass !== 'all') && (
-                            <button 
-                                onClick={() => {setFilterTerm(''); setFilterType('all'); setFilterClass('all');}}
-                                className="text-sm text-red-500 hover:text-red-700 font-semibold whitespace-nowrap"
-                            >
-                                Limpar Filtros
-                            </button>
+                            <button onClick={() => {setFilterTerm(''); setFilterType('all'); setFilterClass('all');}} className="text-sm text-red-500 hover:text-red-700 font-semibold whitespace-nowrap">Limpar Filtros</button>
                         )}
-                        <div className="flex-grow text-right text-xs text-slate-400">
-                            Mostrando {filteredTransactions.length} de {transactions.length}
-                        </div>
+                        <div className="flex-grow text-right text-xs text-slate-400">Mostrando {filteredTransactions.length} de {transactions.length}</div>
                     </div>
 
                     <div className="max-w-7xl mx-auto space-y-8">
-                        {/* HEADER DE IMPRESSÃO (Só aparece no PDF) */}
+                        {/* HEADER DE IMPRESSÃO */}
                         <div className="hidden print:block text-center mb-8">
                             <h1 className="text-2xl font-bold text-slate-800">Relatório Financeiro</h1>
                             <p className="text-sm text-slate-500">Período: {transactions[0]?.date} a {transactions[transactions.length-1]?.date}</p>
@@ -522,7 +501,7 @@
                                 </div>
                             </div>
                             <div className="card p-6 break-inside-avoid">
-                                <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Chart /> Maiores Despesas (Top 6)</h3>
+                                <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Chart /> Top Despesas (Filtro)</h3>
                                 <div className="h-72 flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -537,19 +516,18 @@
                             </div>
                         </div>
 
-                        {/* TABELA */}
+                        {/* TABELA OTIMIZADA */}
                         <div className="card overflow-hidden print:border-0">
                             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center print:hidden">
                                 <h3 className="font-bold text-slate-700">Listagem de Transações</h3>
                             </div>
-                            {/* print-full-height: Classe mágica para expandir tudo na impressão */}
                             <div className="overflow-x-auto max-h-[600px] overflow-y-auto print-full-height">
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm print:static print:shadow-none">
                                         <tr>
                                             <th className="px-6 py-4 font-semibold">Data</th>
                                             <th className="px-6 py-4 font-semibold">Descrição</th>
-                                            <th className="px-6 py-4 font-semibold">Nota / Tipo</th>
+                                            <th className="px-6 py-4 font-semibold">Classificação / Nota</th>
                                             <th className="px-6 py-4 font-semibold text-right">Valor</th>
                                             <th className="px-6 py-4 font-semibold text-center w-20 print:hidden">Editar</th>
                                         </tr>
