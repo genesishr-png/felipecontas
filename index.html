@@ -3,32 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro Pro (Compatível)</title>
+    <title>Dashboard Financeiro Pro (Blindado)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM (Versão 17 LTS - A mais estável para este código) -->
+    <!-- React & ReactDOM (Versão 17 LTS - Estabilidade Máxima) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Recharts (Versão 2.1.9 - Blindada contra erros de renderização) -->
+    <!-- Recharts (Versão 2.1.9 - Blindada) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.1.9/Recharts.min.js"></script>
 
     <style>
-        /* OTIMIZAÇÃO DE IMPRESSÃO (CSS Mágico) */
+        /* OTIMIZAÇÃO DE IMPRESSÃO */
         @media print {
             body { -webkit-print-color-adjust: exact; background-color: white !important; }
             .no-print { display: none !important; }
             .break-inside-avoid { page-break-inside: avoid; }
-            /* Remove scrollbars e expande tabelas na impressão */
             .print-full-height { max-height: none !important; overflow: visible !important; }
             .card { box-shadow: none !important; border: 1px solid #ccc !important; }
             ::-webkit-scrollbar { display: none; }
-            /* Força quebra de página limpa se necessário */
-            .page-break { page-break-before: always; }
         }
         
         .fade-in { animation: fadeIn 0.5s ease-out; }
@@ -50,9 +47,15 @@
 
     <script type="text/babel">
         const { useState, useMemo, useEffect } = React;
+        
+        // --- BLINDAGEM DO RECHARTS ---
+        // Tenta capturar a biblioteca globalmente. Se falhar, cria um objeto vazio para não quebrar o script.
         const RechartsObj = window.Recharts || window.recharts || {};
         const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = RechartsObj;
         
+        // Flag para saber se podemos desenhar gráficos
+        const canRenderCharts = !!(BarChart && PieChart && ResponsiveContainer);
+
         const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
 
         const Icons = {
@@ -93,7 +96,7 @@
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay no-print">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
                         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800">Editar Transação</h3>
+                            <h3 className="text-lg font-bold text-slate-800">Editar Detalhes</h3>
                             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><Icons.Close /></button>
                         </div>
                         <div className="p-6 space-y-4">
@@ -120,7 +123,7 @@
                                 <textarea 
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    placeholder="Ex: Taxa extra, erro do banco..."
+                                    placeholder="Ex: Compra emergencial, taxa extra..."
                                     rows="3"
                                     className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                                 ></textarea>
@@ -129,6 +132,54 @@
                         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
                             <button onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
                             <button onClick={handleSave} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md transition-transform active:scale-95">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Componente de Gráficos Seguro (Não quebra se a lib falhar)
+        function SafeCharts({ chartData, topExpenses, fmtMoney }) {
+            if (!canRenderCharts) {
+                return (
+                    <div className="card p-8 text-center text-slate-400 no-print">
+                        <Icons.Chart />
+                        <p className="mt-2">Visualização gráfica indisponível no momento.</p>
+                        <p className="text-xs">Tente recarregar a página.</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:break-inside-avoid">
+                    <div className="card p-6 break-inside-avoid mb-6 lg:mb-0">
+                        <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Calendar /> Fluxo {chartData.length > 20 ? 'Mensal' : 'Diário'}</h3>
+                        <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData} margin={{top:10, right:10, left:-20, bottom:0}}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} tickFormatter={(v)=>`R$${v/1000}k`} />
+                                    <Tooltip cursor={{fill: '#f8fafc'}} formatter={(val) => fmtMoney(val)} contentStyle={{borderRadius:'12px', border:'none', boxShadow:'0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                    <Legend wrapperStyle={{paddingTop:'20px'}} />
+                                    <Bar name="Entradas" dataKey="Entradas" fill="#10b981" radius={[4,4,0,0]} />
+                                    <Bar name="Saídas" dataKey="Saídas" fill="#ef4444" radius={[4,4,0,0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                    <div className="card p-6 break-inside-avoid">
+                        <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Chart /> Top Despesas (Filtro)</h3>
+                        <div className="h-72 flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={topExpenses} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {topExpenses.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
+                                    </Pie>
+                                    <Tooltip formatter={(val) => fmtMoney(val)} />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
@@ -148,9 +199,8 @@
             const [filterType, setFilterType] = useState('all');
             const [filterClass, setFilterClass] = useState('all');
 
-            // --- CARREGAMENTO DE DADOS (Compatível com v1) ---
+            // --- CARREGAMENTO DE DADOS ---
             useEffect(() => {
-                // USA A MESMA CHAVE 'finance_dashboard_v1' PARA MANTER COMPATIBILIDADE
                 const savedData = localStorage.getItem('finance_dashboard_v1');
                 if (savedData) {
                     try {
@@ -167,7 +217,7 @@
                 }
             }, []);
 
-            // --- SALVAMENTO AUTOMÁTICO (Compatível com v1) ---
+            // --- SALVAMENTO AUTOMÁTICO ---
             useEffect(() => {
                 if (transactions.length > 0) {
                     const dataToSave = { transactions, initialBalance, filesLoaded };
@@ -186,7 +236,7 @@
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ transactions, initialBalance, filesLoaded }));
                 const downloadAnchorNode = document.createElement('a');
                 downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", `backup_financeiro_${new Date().toISOString().split('T')[0]}.json`);
+                downloadAnchorNode.setAttribute("download", `financeiro_backup_${new Date().toISOString().split('T')[0]}.json`);
                 document.body.appendChild(downloadAnchorNode);
                 downloadAnchorNode.click();
                 downloadAnchorNode.remove();
@@ -226,7 +276,7 @@
                 }
             };
 
-            // --- Lógica CSV (Robusta) ---
+            // --- Lógica CSV ---
             const parseCurrency = (val) => {
                 if (!val) return 0;
                 let clean = val.toString().replace(/["']/g, '').trim();
@@ -301,7 +351,7 @@
                 setLoading(false);
             };
 
-            // --- FILTRAGEM INTELIGENTE ---
+            // --- FILTRAGEM ---
             const filteredTransactions = useMemo(() => {
                 return transactions.filter(t => {
                     const matchesText = filterTerm === '' || 
@@ -482,39 +532,8 @@
                             </div>
                         </div>
 
-                        {/* GRÁFICOS */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:break-inside-avoid">
-                            <div className="card p-6 break-inside-avoid mb-6 lg:mb-0">
-                                <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Calendar /> Fluxo {chartData.length > 20 ? 'Mensal' : 'Diário'}</h3>
-                                <div className="h-72">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={chartData} margin={{top:10, right:10, left:-20, bottom:0}}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} dy={10} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12}} tickFormatter={(v)=>`R$${v/1000}k`} />
-                                            <Tooltip cursor={{fill: '#f8fafc'}} formatter={(val) => fmtMoney(val)} contentStyle={{borderRadius:'12px', border:'none', boxShadow:'0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                                            <Legend wrapperStyle={{paddingTop:'20px'}} />
-                                            <Bar name="Entradas" dataKey="Entradas" fill="#10b981" radius={[4,4,0,0]} />
-                                            <Bar name="Saídas" dataKey="Saídas" fill="#ef4444" radius={[4,4,0,0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                            <div className="card p-6 break-inside-avoid">
-                                <h3 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2"><Icons.Chart /> Top Despesas (Filtro)</h3>
-                                <div className="h-72 flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie data={topExpenses} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                                {topExpenses.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
-                                            </Pie>
-                                            <Tooltip formatter={(val) => fmtMoney(val)} />
-                                            <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </div>
+                        {/* GRÁFICOS (Renderizados com segurança) */}
+                        <SafeCharts chartData={chartData} topExpenses={topExpenses} fmtMoney={fmtMoney} />
 
                         {/* TABELA OTIMIZADA */}
                         <div className="card overflow-hidden print:border-0">
