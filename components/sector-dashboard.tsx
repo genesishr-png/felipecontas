@@ -1,12 +1,17 @@
 "use client"
 
 import type React from "react"
-
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { collection, query, where, getDocs, type DocumentData, addDoc } from "firebase/firestore"
+import { signOut } from "firebase/auth"
+import type { User } from "firebase/auth"
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase"
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { ProcessForm } from "./process-form"
 import {
   Plus,
   Users,
@@ -20,13 +25,6 @@ import {
   FileText,
   TrendingUp,
 } from "lucide-react"
-import { collection, query, where, type DocumentData } from "firebase/firestore"
-import { signOut } from "firebase/auth"
-import { Input } from "@/components/ui/input"
-import { getDocs } from "firebase/firestore"
-import { ProcessForm } from "./process-form"
-import type { User } from "firebase/auth"
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase"
 
 interface Sector {
   id: string
@@ -223,7 +221,6 @@ export function SectorDashboard({ sector, user, sectorId }: SectorDashboardProps
         created_at: new Date().toISOString(),
       }
 
-      const { addDoc } = await import("firebase/firestore")
       const docRef = await addDoc(setbacksRef, newSetback)
 
       setSetbacks([{ id: docRef.id, ...newSetback }, ...setbacks])
