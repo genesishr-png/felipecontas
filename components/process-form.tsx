@@ -69,13 +69,17 @@ export function ProcessForm({ sectorId, userId, onProcessCreated }: ProcessFormP
       console.log("[v0] All required fields validated")
       console.log("[v0] Attempting to save to Firestore...")
 
-      const docRef = await addDoc(collection(db, "processes"), {
-        sector_id: sectorId, // Changed from sectorId to sector_id
-        user_id: userId, // Changed from userId to user_id
+      const processData = {
+        sector_id: sectorId,
+        user_id: userId,
         ...formData,
         status: formData.data_saida ? "closed" : "open",
         created_at: serverTimestamp(),
-      })
+      }
+
+      console.log("[v0] Process data to save:", processData)
+
+      const docRef = await addDoc(collection(db, "processes"), processData)
 
       console.log("[v0] Process saved successfully with ID:", docRef.id)
 
@@ -101,7 +105,6 @@ export function ProcessForm({ sectorId, userId, onProcessCreated }: ProcessFormP
 
       console.log("[v0] Form reset, showing success message")
 
-      // Show success message
       const successMessage = document.createElement("div")
       successMessage.className =
         "fixed bottom-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg animate-pulse z-50"
@@ -110,7 +113,19 @@ export function ProcessForm({ sectorId, userId, onProcessCreated }: ProcessFormP
       setTimeout(() => successMessage.remove(), 3000)
     } catch (err: unknown) {
       console.error("[v0] Error saving process:", err)
-      setError(err instanceof Error ? err.message : "Erro ao criar processo")
+      let errorMessage = "Erro ao criar processo"
+
+      if (err instanceof Error) {
+        errorMessage = err.message
+
+        if (err.message.includes("permission") || err.message.includes("PERMISSION_DENIED")) {
+          errorMessage = "Erro de permissão no Firebase. Verifique as regras do Firestore."
+        } else if (err.message.includes("network") || err.message.includes("Failed to fetch")) {
+          errorMessage = "Erro de rede. Desabilite bloqueadores de anúncios e tente novamente."
+        }
+      }
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -124,7 +139,6 @@ export function ProcessForm({ sectorId, userId, onProcessCreated }: ProcessFormP
       <CardContent>
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-4">
-            {/* Show type selector only for legal disputes sector */}
             {sectorId === "legal_disputes" && (
               <div className="grid gap-2 bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <Label htmlFor="tipoDisputa">Tipo de Disputa *</Label>
