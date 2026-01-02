@@ -107,9 +107,9 @@ export function SectorDashboard({ sector, user, sectorId }: SectorDashboardProps
       fechados > 0
         ? Math.round(
             processes
-              .filter((p) => p.data_saida && p.responsavel)
+              .filter((p) => p.data_saida && p.data_entrada_proger)
               .reduce((sum, p) => {
-                const inicio = new Date(p.data_com_responsavel).getTime()
+                const inicio = new Date(p.data_entrada_proger).getTime()
                 const fim = new Date(p.data_saida).getTime()
                 return sum + Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24))
               }, 0) / fechados,
